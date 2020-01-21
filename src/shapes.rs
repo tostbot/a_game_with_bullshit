@@ -8,89 +8,64 @@ use std::io::Cursor;
 use glium::framebuffer::ColorAttachment::Texture;
 use glium::texture::RawImage2d;
 use glium::texture::Texture2d;
-
-pub struct Triangle {
-    x: f32,
-    y: f32,
-}
-
-impl Triangle {
-    pub fn new(x: f32, y: f32) -> Self {
-        Triangle { x, y }
-    }
-}
+use std::rc::Rc;
 
 
-impl Mesh for Triangle {
-    fn vertex_buffer(&self, display: &Display) -> VertexBuffer<Vertex> {
-        glium::VertexBuffer::new(display,
-                                 &[
-                                     Vertex { uv: [0.0, 0.0], position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
-                                     Vertex { uv: [0.0, 1.0], position: [0.0, 0.5], color: [0.0, 0.0, 1.0] },
-                                     Vertex { uv: [1.0, 0.0], position: [0.5, -0.5], color: [1.0, 0.0, 0.0] },
-                                 ],
-        ).unwrap()
-    }
-
-    fn index_buffer(&self, display: &Display) -> IndexBuffer<u16> {
-        glium::IndexBuffer::new(display, PrimitiveType::TrianglesList,
-                                &[0u16, 1, 2]).unwrap()
-    }
-}
 
 pub struct Bullet {
     x: f32,
     y: f32,
     size: f32,
-    vbo: Option<VertexBuffer<Vertex>>,
+    vertex_buffer: Rc<VertexBuffer<Vertex>>,
+    index_buffer: Rc<IndexBuffer<u16>>,
+    pub texture: Texture2d
+
 
 }
 
 impl Bullet {
-    pub fn new(x: f32, y: f32, size: f32) -> Self {
-        Bullet { x, y, size, vbo: None}
-    }
-}
+    pub fn new(display: &Display, x: f32, y: f32, size: f32) -> Self {
 
-
-impl Bullet {
-    fn get_texture(&self, display: &Display) -> Texture2d {
         let image = image::load(Cursor::new(&include_bytes!("/home/andrey/Pictures/sprites/bullet.png")[..]),
                                 image::PNG).unwrap().to_rgba();
         let image_dimensions = image.dimensions();
         let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
 
-        glium::texture::Texture2d::new(display, image).unwrap()
+        let texture = glium::texture::Texture2d::new(display, image).unwrap();
+
+        let image_width = texture.width() as f32 / 200.0;
+        let image_height = texture.height() as f32 / 200.0;
 
 
+        let vertex_buffer = glium::VertexBuffer::new(display,
+                                 &[
+                                     Vertex { uv: [0.0, 0.0], position: [x - image_width / 2.0, y - image_height / 2.0] },
+                                     Vertex { uv: [0.0, 1.0], position: [x - image_width / 2.0, y + image_height / 2.0] },
+                                     Vertex { uv: [1.0, 1.0], position: [x + image_width / 2.0, y + image_height / 2.0] },
+                                     Vertex { uv: [1.0, 0.0], position: [x + image_width / 2.0, y - image_height / 2.0] },
+                                 ],
+        ).unwrap();
+
+        let index_buffer = glium::IndexBuffer::new(
+            display,
+            PrimitiveType::TrianglesList,
+            &[0u16, 1, 2, 0, 2, 3]
+        ).unwrap();
+
+        Bullet { x, y, size, vertex_buffer: Rc::new(vertex_buffer), index_buffer: Rc::new(index_buffer), texture}
     }
 }
 
 
 impl Mesh for Bullet {
-    fn vertex_buffer(&self, display: &Display) -> VertexBuffer<Vertex> {
-        let texture = self.get_texture(display);
-
-        let image_width = texture.width() as f32 / 300.0;
-        let image_height = texture.height() as f32 / 300.0;
-
-
-        glium::VertexBuffer::new(display,
-                                 &[
-                                     Vertex { uv: [0.0, 0.0], position: [self.x - image_width / 2.0, self.y - image_height / 2.0], color: [1.0, 0.0, 0.0] },
-                                     Vertex { uv: [0.0, 1.0], position: [self.x - image_width / 2.0, self.y + image_height / 2.0], color: [1.0, 0.0, 0.0] },
-                                     Vertex { uv: [1.0, 1.0], position: [self.x + image_width / 2.0, self.y + image_height / 2.0], color: [1.0, 0.0, 0.0] },
-                                     Vertex { uv: [1.0, 0.0], position: [self.x + image_width / 2.0, self.y - image_height / 2.0], color: [1.0, 0.0, 0.0] },
-                                 ],
-        ).unwrap()
+    fn vertex_buffer(&self) -> Rc<VertexBuffer<Vertex>> {
+        self.vertex_buffer.clone()
     }
 
-    fn index_buffer(&self, display: &Display) -> IndexBuffer<u16> {
-        glium::IndexBuffer::new(display, PrimitiveType::TrianglesList,
-                                &[0u16, 1, 2, 0, 2, 3]).unwrap()
+    fn index_buffer(&self) -> Rc<IndexBuffer<u16>> {
+        self.index_buffer.clone()
+    }
+    fn texture(&self) -> &Texture2d {
+        &self.texture
     }
 }
-
-
-
-
